@@ -1252,102 +1252,235 @@
     });
   }
 
-  /* vehicle body outlines in the vehicle frame: x from rear wheel toward front wheel, y up (metres) */
-  function vehicleShape(def) {
-    const wb = def.wheelbase;
-    switch (def.key) {
-      case 'car': return {
-        body: [[-0.75, -0.05], [wb + 0.85, -0.05], [wb + 0.9, 0.42], [wb + 0.25, 0.55], [wb - 0.35, 1.05], [0.25, 1.05], [-0.35, 0.6], [-0.75, 0.55]],
-        glass: [[wb - 0.45, 0.95], [0.32, 0.95], [-0.15, 0.6], [wb + 0.05, 0.6]],
-      };
-      case 'van': return {
-        body: [[-0.8, -0.05], [wb + 0.85, -0.05], [wb + 0.9, 0.7], [wb + 0.45, 1.45], [-0.8, 1.45]],
-        glass: [[wb + 0.38, 1.32], [wb - 0.2, 1.32], [wb - 0.2, 0.75], [wb + 0.78, 0.75]],
-      };
-      case 'truck': return {
-        body: [[wb - 0.6, -0.05], [wb + 1.0, -0.05], [wb + 1.0, 1.0], [wb + 0.7, 1.75], [wb - 0.6, 1.75]],
-        cargo: [[-1.0, 0.1], [wb - 0.75, 0.1], [wb - 0.75, 2.0], [-1.0, 2.0]],
-        glass: [[wb + 0.62, 1.62], [wb - 0.1, 1.62], [wb - 0.1, 1.05], [wb + 0.9, 1.05]],
-      };
-      case 'bike': {
-        const helmet = [];
-        for (let i = 0; i < 10; i++) { const a = (i / 10) * Math.PI * 2; helmet.push([0.78 + Math.cos(a) * 0.19, 1.42 + Math.sin(a) * 0.19]); }
-        return {
-          body: [[-0.35, 0.05], [wb + 0.2, 0.05], [wb + 0.1, 0.5], [wb * 0.55, 0.58], [0.1, 0.62], [-0.42, 0.38]],
-          glass: [[wb - 0.08, 0.55], [wb + 0.08, 0.55], [wb - 0.02, 0.88], [wb - 0.18, 0.82]],
-          extra: [
-            { pts: [[0.4, 0.55], [0.8, 0.55], [0.92, 1.24], [0.58, 1.3]], fill: '#2d3a46' },
-            { pts: [[0.8, 1.15], [0.92, 1.24], [wb - 0.05, 0.8], [wb - 0.15, 0.72]], fill: '#2d3a46' },
-            { pts: helmet, fill: '#f2b631' },
-          ],
-          extraOnTop: true,
-        };
-      }
-      case 'pickup': return {
-        body: [[-0.85, -0.05], [wb + 0.9, -0.05], [wb + 0.95, 0.55], [wb + 0.35, 0.62], [wb - 0.15, 1.2], [wb - 1.05, 1.2], [wb - 1.15, 0.62], [-0.85, 0.62]],
-        glass: [[wb - 0.25, 1.1], [wb - 0.95, 1.1], [wb - 1.0, 0.68], [wb + 0.15, 0.68]],
-      };
-      case 'monster': return {
-        extra: [{ pts: [[-0.3, -0.1], [wb + 0.3, -0.1], [wb + 0.3, 0.45], [-0.3, 0.45]], fill: '#2a2f35' }],
-        body: [[-0.9, 0.35], [wb + 0.95, 0.35], [wb + 1.0, 0.85], [wb + 0.35, 0.95], [wb - 0.1, 1.5], [0.3, 1.5], [-0.2, 0.95], [-0.9, 0.9]],
-        glass: [[wb - 0.2, 1.4], [0.38, 1.4], [0.05, 1.0], [wb + 0.15, 1.0]],
-      };
-      case 'tanker': return {
-        extra: [
-          { pts: [[-1.1, 0.55], [-0.95, 0.3], [wb - 0.95, 0.3], [wb - 0.8, 0.55], [wb - 0.8, 1.75], [wb - 0.95, 2.0], [-0.95, 2.0], [-1.1, 1.75]], fill: '#c9d0d6' },
-          { pts: [[-1.1, 1.05], [wb - 0.8, 1.05], [wb - 0.8, 1.25], [-1.1, 1.25]], fill: '#e0603a' },
-        ],
-        body: [[wb - 0.6, -0.05], [wb + 1.05, -0.05], [wb + 1.05, 1.0], [wb + 0.75, 1.8], [wb - 0.6, 1.8]],
-        glass: [[wb + 0.67, 1.67], [wb - 0.1, 1.67], [wb - 0.1, 1.05], [wb + 0.95, 1.05]],
-      };
-      case 'bus': default: return {
-        body: [[-1.0, -0.05], [wb + 1.0, -0.05], [wb + 1.05, 1.9], [-1.0, 1.9]],
-        windows: true,
-        glass: [[wb + 0.95, 1.75], [wb + 0.45, 1.75], [wb + 0.45, 0.85], [wb + 0.98, 0.85]],
-      };
-    }
+  /* ---------- vehicles ----------
+   * Drawn in the vehicle's own frame, in metres: origin at the rear wheel centre,
+   * +x toward the front wheel, +y up. drawVehicle() sets up the canvas transform.
+   */
+  function shade(hex, f) {
+    const n = parseInt(hex.slice(1), 16);
+    let r = n >> 16, g = (n >> 8) & 255, b = n & 255;
+    const t = f < 0 ? 0 : 255, k = Math.abs(f);
+    r = Math.round(r + (t - r) * k); g = Math.round(g + (t - g) * k); b = Math.round(b + (t - b) * k);
+    return `rgb(${r}, ${g}, ${b})`;
   }
 
-  function drawVehicle(v) {
-    const def = v.def;
-    const r0 = v.parts[0], r1 = v.parts[1];
-    const ux0 = r1.x - r0.x, uy0 = r1.y - r0.y, ul = Math.hypot(ux0, uy0) || 1;
-    const ux = ux0 / ul, uy = uy0 / ul, vx = -uy, vy = ux;
-    const P = (lx, ly) => toScreen(r0.x + ux * lx + vx * ly, r0.y + uy * lx + vy * ly);
-    const poly = (pts, fill, stroke) => {
-      ctx.beginPath();
-      pts.forEach(([lx, ly], i) => { const [sx, sy] = P(lx, ly); if (i) ctx.lineTo(sx, sy); else ctx.moveTo(sx, sy); });
-      ctx.closePath(); ctx.fillStyle = fill; ctx.fill();
-      if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = Math.max(1, cam.scale * 0.04); ctx.stroke(); }
+  function vehiclePainter() {
+    const px = 1 / cam.scale;                      // one screen pixel in metres
+    const OUT = 'rgba(18, 26, 34, 0.7)';
+    const lw = (p) => Math.max(1, p * cam.scale) * px; // a line p metres wide, at least 1px
+    const path = (pts) => { ctx.beginPath(); pts.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y))); ctx.closePath(); };
+    const fill = (pts, style, stroke = true) => {
+      path(pts); ctx.fillStyle = style; ctx.fill();
+      if (stroke) { ctx.strokeStyle = OUT; ctx.lineWidth = lw(0.035); ctx.lineJoin = 'round'; ctx.stroke(); }
     };
-    const shape = vehicleShape(def);
-    const outline = 'rgba(20, 30, 40, 0.55)';
-    if (shape.cargo) poly(shape.cargo, '#e9e4d6', outline);
-    if (shape.extra && !shape.extraOnTop) for (const e of shape.extra) poly(e.pts, e.fill, outline);
-    poly(shape.body, def.color, outline);
-    if (shape.extra && shape.extraOnTop) for (const e of shape.extra) poly(e.pts, e.fill, outline);
-    if (shape.windows) {
-      for (let x = -0.7; x < def.wheelbase + 0.2; x += 0.85) poly([[x, 1.05], [x + 0.65, 1.05], [x + 0.65, 1.7], [x, 1.7]], '#cfe9f2', null);
-    }
-    poly(shape.glass, '#cfe9f2', null);
-    // wheels
-    for (let k = 0; k < 2; k++) {
-      const p = v.parts[k];
-      const [sx, sy] = toScreen(p.x, p.y);
-      const r = p.r * cam.scale;
-      ctx.fillStyle = '#20262c';
-      ctx.beginPath(); ctx.arc(sx, sy, r, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = '#c7ced4';
-      ctx.beginPath(); ctx.arc(sx, sy, r * 0.5, 0, Math.PI * 2); ctx.fill();
-      ctx.strokeStyle = '#5b646c'; ctx.lineWidth = Math.max(1, r * 0.12);
-      const a = v.wheelAngle[k];
-      ctx.beginPath();
-      for (let s = 0; s < 3; s++) {
-        const ang = a + (s * Math.PI * 2) / 3;
-        ctx.moveTo(sx, sy); ctx.lineTo(sx + Math.cos(ang) * r * 0.48, sy - Math.sin(ang) * r * 0.48);
+    const rect = (x, y, w, h, style, stroke = false) => fill([[x, y], [x + w, y], [x + w, y + h], [x, y + h]], style, stroke);
+    const vgrad = (y0, y1, top, bottom) => { const g = ctx.createLinearGradient(0, y1, 0, y0); g.addColorStop(0, top); g.addColorStop(1, bottom); return g; };
+    const paint = (pts, color, y0, y1) => fill(pts, vgrad(y0, y1, shade(color, 0.22), shade(color, -0.2)));
+    const line = (pts, color, w) => {
+      ctx.beginPath(); pts.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
+      ctx.strokeStyle = color; ctx.lineWidth = lw(w); ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.stroke(); ctx.lineCap = 'butt';
+    };
+    const circle = (x, y, r, style, stroke = false) => {
+      ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fillStyle = style; ctx.fill();
+      if (stroke) { ctx.strokeStyle = OUT; ctx.lineWidth = lw(0.03); ctx.stroke(); }
+    };
+    // tinted glass with a soft reflection streak
+    const glass = (pts) => {
+      const ys = pts.map((p) => p[1]), xs = pts.map((p) => p[0]);
+      const y0 = Math.min(...ys), y1 = Math.max(...ys), x0 = Math.min(...xs), x1 = Math.max(...xs);
+      fill(pts, vgrad(y0, y1, '#d9f0f7', '#7fb3c6'), false);
+      ctx.save(); path(pts); ctx.clip();
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
+      const w = (x1 - x0) * 0.18, cx = x0 + (x1 - x0) * 0.35;
+      path([[cx, y1 + 0.1], [cx + w, y1 + 0.1], [cx + w - (y1 - y0) * 0.6, y0 - 0.1], [cx - (y1 - y0) * 0.6, y0 - 0.1]]); ctx.fill();
+      ctx.restore();
+      path(pts); ctx.strokeStyle = 'rgba(18, 26, 34, 0.55)'; ctx.lineWidth = lw(0.025); ctx.stroke();
+    };
+    const headlight = (x, y, w, h) => { fill([[x, y], [x + w, y], [x + w, y + h], [x, y + h]], '#fff4c2', false); circle(x + w * 0.5, y + h * 0.5, Math.min(w, h) * 0.32, '#ffffff'); };
+    const taillight = (x, y, w, h) => fill([[x, y], [x + w, y], [x + w, y + h], [x, y + h]], '#e2463a', false);
+    const bumper = (x, y, w, h) => rect(x, y, w, h, vgrad(y, y + h, '#9aa3ab', '#4d555d'), true);
+    const handle = (x, y) => rect(x, y, 0.16, 0.045, 'rgba(18, 26, 34, 0.55)');
+    const seam = (x, y0, y1) => line([[x, y0], [x, y1]], 'rgba(18, 26, 34, 0.45)', 0.025);
+    // dark wheel well cut into the body
+    const arches = (body, xs, r) => {
+      ctx.save(); path(body); ctx.clip();
+      for (const x of xs) circle(x, 0, r * 1.13, '#151a1f');
+      ctx.restore();
+    };
+    const wheel = (x, r, ang, chunky) => {
+      ctx.save(); ctx.translate(x, 0);
+      circle(0, 0, r, '#1b2025');
+      if (chunky) {
+        // tread blocks around a knobbly tyre
+        ctx.fillStyle = '#1b2025';
+        for (let i = 0; i < 14; i++) {
+          const a = ang + (i / 14) * Math.PI * 2;
+          ctx.save(); ctx.rotate(a); ctx.fillRect(r * 0.9, -r * 0.1, r * 0.16, r * 0.2); ctx.restore();
+        }
       }
+      ctx.beginPath(); ctx.arc(0, 0, r * 0.84, 0, Math.PI * 2); ctx.strokeStyle = '#353d45'; ctx.lineWidth = lw(r * 0.07); ctx.stroke();
+      const rim = r * (chunky ? 0.5 : 0.56);
+      const g = ctx.createRadialGradient(-rim * 0.3, rim * 0.3, rim * 0.1, 0, 0, rim);
+      g.addColorStop(0, '#f2f5f7'); g.addColorStop(1, '#8f99a2');
+      circle(0, 0, rim, g);
+      ctx.strokeStyle = '#6c757d'; ctx.lineWidth = lw(rim * 0.12);
+      ctx.beginPath();
+      for (let i = 0; i < 5; i++) { const a = ang + (i / 5) * Math.PI * 2; ctx.moveTo(Math.cos(a) * rim * 0.25, Math.sin(a) * rim * 0.25); ctx.lineTo(Math.cos(a) * rim * 0.92, Math.sin(a) * rim * 0.92); }
       ctx.stroke();
-    }
+      circle(0, 0, rim * 0.28, '#4a535b');
+      ctx.restore();
+    };
+    return { px, lw, path, fill, rect, vgrad, paint, line, circle, glass, headlight, taillight, bumper, handle, seam, arches, wheel, OUT };
+  }
+
+  const VEHICLE_ART = {
+    car(p, d, wb, r, a) {
+      const body = [[-0.8, -0.02], [wb + 0.86, -0.02], [wb + 0.93, 0.28], [wb + 0.84, 0.5], [wb + 0.2, 0.62], [wb - 0.38, 1.08], [0.22, 1.08], [-0.36, 0.64], [-0.74, 0.58], [-0.84, 0.3]];
+      p.paint(body, d.color, -0.02, 1.08);
+      p.rect(-0.8, -0.02, wb + 1.66, 0.13, 'rgba(18, 26, 34, 0.28)');
+      p.arches(body, [0, wb], r);
+      p.glass([[0.95, 0.99], [0.3, 0.99], [-0.12, 0.67], [0.95, 0.67]]);
+      p.glass([[wb - 0.45, 0.99], [1.07, 0.99], [1.07, 0.67], [wb + 0.08, 0.67]]);
+      p.seam(1.01, 0.12, 1.03); p.seam(wb - 0.05, 0.12, 0.64);
+      p.handle(0.7, 0.5); p.handle(wb - 0.38, 0.5);
+      p.line([[0.25, 1.06], [wb - 0.4, 1.06]], 'rgba(255, 255, 255, 0.35)', 0.03);
+      p.headlight(wb + 0.78, 0.32, 0.13, 0.12); p.taillight(-0.84, 0.34, 0.1, 0.13);
+      p.bumper(-0.88, -0.03, 0.26, 0.15); p.bumper(wb + 0.7, -0.03, 0.27, 0.15);
+      p.wheel(0, r, a[0]); p.wheel(wb, r, a[1]);
+    },
+    van(p, d, wb, r, a) {
+      const body = [[-0.84, -0.02], [wb + 0.88, -0.02], [wb + 0.93, 0.6], [wb + 0.6, 0.8], [wb + 0.25, 1.46], [wb + 0.05, 1.5], [-0.78, 1.5], [-0.84, 1.42]];
+      p.paint(body, d.color, -0.02, 1.5);
+      p.rect(-0.84, 0.42, wb + 1.74, 0.12, shade(d.color, -0.35));
+      p.arches(body, [0, wb], r);
+      p.glass([[-0.62, 1.36], [0.42, 1.36], [0.42, 0.88], [-0.62, 0.88]]);
+      p.glass([[0.62, 1.36], [1.7, 1.36], [1.7, 0.88], [0.62, 0.88]]);
+      p.glass([[wb + 0.18, 1.38], [wb - 0.12, 1.38], [wb - 0.12, 0.86], [wb + 0.52, 0.86]]);
+      p.seam(0.52, 0.1, 1.44); p.seam(1.8, 0.1, 1.44); p.seam(wb - 0.2, 0.1, 1.44);
+      p.line([[0.55, 1.42], [1.78, 1.42]], 'rgba(18, 26, 34, 0.5)', 0.03);
+      p.handle(1.55, 0.68); p.handle(wb - 0.05, 0.68);
+      p.line([[-0.6, 1.56], [wb - 0.1, 1.56]], '#5b646c', 0.05);
+      p.headlight(wb + 0.8, 0.56, 0.12, 0.14); p.taillight(-0.86, 0.6, 0.08, 0.3);
+      p.bumper(-0.92, -0.03, 0.26, 0.16); p.bumper(wb + 0.72, -0.03, 0.27, 0.16);
+      p.wheel(0, r, a[0]); p.wheel(wb, r, a[1]);
+    },
+    truck(p, d, wb, r, a) {
+      p.rect(-1.05, -0.08, wb + 1.95, 0.2, '#2a3036', true);
+      const box = [[-1.08, 0.12], [wb - 0.72, 0.12], [wb - 0.72, 2.08], [-1.08, 2.08]];
+      p.fill(box, p.vgrad(0.12, 2.08, '#f4f0e4', '#cfc8b4'));
+      for (let x = -0.88; x < wb - 0.8; x += 0.36) p.seam(x, 0.2, 2.0);
+      p.rect(-1.08, 1.92, wb + 0.36, 0.16, '#bdb5a0');
+      p.rect(-0.7, 0.85, 2.2, 0.42, d.color);
+      const cab = [[wb - 0.64, -0.05], [wb + 1.02, -0.05], [wb + 1.06, 0.95], [wb + 0.8, 1.82], [wb - 0.64, 1.86]];
+      p.paint(cab, d.color, -0.05, 1.86);
+      p.arches(cab, [wb], r);
+      p.glass([[wb + 0.7, 1.7], [wb - 0.06, 1.7], [wb - 0.06, 1.1], [wb + 0.94, 1.1]]);
+      p.seam(wb - 0.12, 0.1, 1.8); p.handle(wb - 0.02, 0.92);
+      for (let y = 0.3; y < 0.8; y += 0.12) p.line([[wb + 0.9, y], [wb + 1.03, y]], 'rgba(18, 26, 34, 0.55)', 0.03);
+      p.rect(wb - 0.74, 1.3, 0.1, 1.0, p.vgrad(1.3, 2.3, '#c7ced4', '#7b858e'), true);
+      p.headlight(wb + 0.92, 0.9, 0.13, 0.13); p.taillight(-1.1, 0.25, 0.08, 0.22);
+      p.bumper(wb + 0.8, -0.06, 0.3, 0.18);
+      p.wheel(0, r, a[0]); p.wheel(wb, r, a[1]);
+    },
+    bus(p, d, wb, r, a) {
+      const body = [[-1.02, -0.02], [wb + 1.0, -0.02], [wb + 1.07, 1.76], [wb + 0.94, 1.97], [-0.94, 1.97], [-1.04, 1.82]];
+      p.paint(body, d.color, -0.02, 1.97);
+      p.rect(-1.03, 0.52, wb + 2.08, 0.16, '#f4f1e8');
+      p.arches(body, [0, wb], r);
+      p.rect(-0.88, 1.0, wb + 1.2, 0.78, '#1f2a33');
+      for (let x = -0.82; x < wb + 0.2; x += 0.78) p.glass([[x, 1.72], [x + 0.66, 1.72], [x + 0.66, 1.06], [x, 1.06]]);
+      p.glass([[wb + 0.98, 1.74], [wb + 0.42, 1.74], [wb + 0.42, 0.78], [wb + 1.03, 0.78]]);
+      p.rect(wb - 0.3, 0.06, 0.62, 1.72, '#1f2a33');
+      p.glass([[wb - 0.26, 1.7], [wb - 0.02, 1.7], [wb - 0.02, 0.12], [wb - 0.26, 0.12]]);
+      p.glass([[wb + 0.04, 1.7], [wb + 0.28, 1.7], [wb + 0.28, 0.12], [wb + 0.04, 0.12]]);
+      p.rect(wb + 0.36, 1.8, 0.62, 0.13, '#ffb43a');
+      p.headlight(wb + 0.9, 0.3, 0.14, 0.14); p.taillight(-1.06, 0.3, 0.08, 0.3);
+      p.bumper(-1.1, -0.04, 0.24, 0.16); p.bumper(wb + 0.86, -0.04, 0.26, 0.16);
+      p.wheel(0, r, a[0]); p.wheel(wb, r, a[1]);
+    },
+    bike(p, d, wb, r, a) {
+      p.wheel(0, r, a[0]); p.wheel(wb, r, a[1]);
+      p.line([[-0.1, 0.32], [0.75, 0.22]], '#9aa3ab', 0.07);                       // exhaust
+      p.line([[0, 0], [0.5, 0.55], [wb - 0.22, 0.7], [wb, 0]], '#38414a', 0.06);    // frame + fork
+      p.rect(0.42, 0.14, 0.5, 0.36, p.vgrad(0.14, 0.5, '#8d969e', '#4f5860'), true); // engine
+      p.paint([[0.5, 0.56], [1.05, 0.56], [1.16, 0.74], [0.95, 0.84], [0.62, 0.8]], d.color, 0.56, 0.84); // tank
+      p.fill([[0.1, 0.62], [0.58, 0.62], [0.6, 0.72], [0.16, 0.74]], '#1f252b');  // seat
+      p.paint([[wb - 0.12, 0.62], [wb + 0.14, 0.52], [wb + 0.1, 0.86], [wb - 0.1, 0.88]], d.color, 0.52, 0.88); // fairing
+      p.headlight(wb + 0.08, 0.6, 0.07, 0.1);
+      p.line([[0.4, 0.74], [0.84, 0.62], [0.76, 0.24]], '#2c3e58', 0.16);           // leg
+      p.fill([[0.22, 0.68], [0.7, 0.64], [1.04, 1.16], [0.95, 1.33], [0.58, 1.38]], p.vgrad(0.64, 1.38, '#3d4c5a', '#222c35')); // jacket
+      p.line([[0.88, 1.22], [wb - 0.2, 0.84]], '#2b3640', 0.12);                     // arm
+      p.circle(0.9, 1.47, 0.2, p.vgrad(1.27, 1.67, '#ffd45e', '#e09a12'), true);    // helmet
+      p.fill([[0.96, 1.42], [1.1, 1.44], [1.08, 1.55], [0.98, 1.56]], '#1f2a33', false); // visor
+    },
+    pickup(p, d, wb, r, a) {
+      const body = [[-0.9, -0.02], [wb + 0.9, -0.02], [wb + 0.97, 0.48], [wb + 0.42, 0.64], [wb - 0.14, 1.26], [wb - 1.1, 1.26], [wb - 1.2, 0.68], [-0.9, 0.68]];
+      p.paint(body, d.color, -0.02, 1.26);
+      p.rect(-0.9, -0.02, wb + 1.8, 0.12, 'rgba(18, 26, 34, 0.28)');
+      p.arches(body, [0, wb], r);
+      p.line([[-0.9, 0.66], [wb - 1.2, 0.66]], shade(d.color, -0.45), 0.06);
+      p.seam(-0.72, 0.1, 0.64); p.seam(wb - 1.2, 0.1, 1.2);
+      p.glass([[wb - 0.22, 1.15], [wb - 1.02, 1.15], [wb - 1.08, 0.74], [wb + 0.18, 0.74]]);
+      p.seam(wb - 0.5, 0.74, 1.15);
+      p.handle(wb - 0.95, 0.52);
+      p.headlight(wb + 0.84, 0.3, 0.13, 0.13); p.taillight(-0.92, 0.36, 0.08, 0.22);
+      p.bumper(-0.98, -0.03, 0.26, 0.15); p.bumper(wb + 0.74, -0.03, 0.27, 0.15);
+      p.wheel(0, r, a[0]); p.wheel(wb, r, a[1]);
+    },
+    monster(p, d, wb, r, a) {
+      p.rect(-0.35, -0.12, wb + 0.7, 0.36, '#262c32', true);
+      for (const x of [0, wb]) { // coil-over shocks
+        const pts = []; for (let i = 0; i <= 8; i++) pts.push([x + 0.18 + (i % 2 ? 0.1 : -0.1), 0.1 + i * 0.07]);
+        p.line(pts, '#ffcf3a', 0.04); p.line([[x, 0], [x + 0.18, 0.72]], '#9aa3ab', 0.05);
+      }
+      const body = [[-0.92, 0.42], [wb + 0.95, 0.42], [wb + 1.02, 0.88], [wb + 0.38, 0.98], [wb - 0.1, 1.55], [0.3, 1.55], [-0.2, 1.0], [-0.92, 0.95]];
+      p.paint(body, d.color, 0.42, 1.55);
+      // flame decal
+      p.fill([[-0.85, 0.5], [0.4, 0.5], [0.15, 0.62], [0.7, 0.66], [0.35, 0.76], [1.05, 0.8], [0.4, 0.86], [-0.85, 0.86]], '#ffb43a', false);
+      p.fill([[-0.85, 0.56], [0.1, 0.56], [-0.05, 0.64], [0.4, 0.68], [-0.85, 0.76]], '#ff6a3a', false);
+      p.glass([[wb - 0.2, 1.44], [0.38, 1.44], [0.05, 1.04], [wb + 0.16, 1.04]]);
+      p.seam(1.25, 0.5, 1.5); p.handle(1.0, 0.86);
+      for (const x of [0.5, 0.9, 1.3]) p.circle(x, 1.63, 0.08, '#fff4c2', true);
+      p.headlight(wb + 0.9, 0.62, 0.13, 0.12); p.taillight(-0.94, 0.62, 0.08, 0.16);
+      p.wheel(0, r, a[0], true); p.wheel(wb, r, a[1], true);
+    },
+    tanker(p, d, wb, r, a) {
+      p.rect(-1.1, -0.08, wb + 2.0, 0.22, '#2a3036', true);
+      const tank = [[-1.12, 0.55], [-0.98, 0.32], [wb - 0.96, 0.32], [wb - 0.82, 0.55], [wb - 0.82, 1.78], [wb - 0.96, 2.02], [-0.98, 2.02], [-1.12, 1.78]];
+      const g = ctx.createLinearGradient(0, 2.02, 0, 0.32);
+      g.addColorStop(0, '#d9dee2'); g.addColorStop(0.35, '#ffffff'); g.addColorStop(0.7, '#b9c1c8'); g.addColorStop(1, '#7f8a93');
+      p.fill(tank, g);
+      for (let x = -0.5; x < wb - 1.0; x += 1.1) p.line([[x, 0.36], [x, 1.98]], 'rgba(60, 70, 80, 0.35)', 0.04);
+      p.rect(-1.12, 1.05, wb + 0.3, 0.18, d.color);
+      const cx = (wb - 1.9) / 2;
+      p.fill([[cx, 1.38], [cx + 0.26, 1.64], [cx, 1.9], [cx - 0.26, 1.64]], '#ff9a2a');
+      p.line([[cx - 0.12, 1.64], [cx + 0.12, 1.64]], '#1f2a33', 0.04);
+      for (let y = 0.45; y < 2.0; y += 0.2) p.line([[-1.2, y], [-1.05, y]], '#7b858e', 0.03);
+      p.line([[-1.2, 0.35], [-1.2, 2.0]], '#7b858e', 0.035);
+      const cab = [[wb - 0.62, -0.05], [wb + 1.05, -0.05], [wb + 1.08, 1.0], [wb + 0.8, 1.82], [wb - 0.62, 1.86]];
+      p.paint(cab, d.color, -0.05, 1.86);
+      p.arches(cab, [wb], r);
+      p.glass([[wb + 0.7, 1.7], [wb - 0.05, 1.7], [wb - 0.05, 1.1], [wb + 0.95, 1.1]]);
+      p.seam(wb - 0.1, 0.1, 1.8); p.handle(wb, 0.92);
+      for (let y = 0.3; y < 0.8; y += 0.12) p.line([[wb + 0.92, y], [wb + 1.05, y]], 'rgba(18, 26, 34, 0.55)', 0.03);
+      p.rect(wb - 0.74, 1.3, 0.1, 1.05, p.vgrad(1.3, 2.35, '#c7ced4', '#7b858e'), true);
+      p.headlight(wb + 0.94, 0.9, 0.13, 0.13); p.taillight(-1.14, 0.12, 0.1, 0.16);
+      p.bumper(wb + 0.82, -0.06, 0.3, 0.18);
+      p.wheel(0, r, a[0]); p.wheel(wb, r, a[1]);
+    },
+  };
+
+  function drawVehicle(v) {
+    const r0 = v.parts[0], r1 = v.parts[1];
+    const [sx, sy] = toScreen(r0.x, r0.y);
+    const ang = Math.atan2(r1.y - r0.y, r1.x - r0.x);
+    const art = VEHICLE_ART[v.def.key] || VEHICLE_ART.car;
+    ctx.save();
+    ctx.translate(sx, sy);
+    ctx.scale(cam.scale, -cam.scale); // metres, y up
+    ctx.rotate(ang);
+    art(vehiclePainter(), v.def, v.def.wheelbase, v.def.wheelR, v.wheelAngle);
+    ctx.restore();
   }
 
   function drawFlag() {
@@ -1453,5 +1586,5 @@
   if (hot && hot.ready) hot.ready(boot); else boot(hot && hot.data ? hot.data : null);
 
   // tiny debug/test handle
-  window.Bridgewright = { state: S, loadLevel, startSim, stopSim, worldDesign, encodeDesign, decodeDesign, cam };
+  window.Bridgewright = { state: S, loadLevel, startSim, stopSim, worldDesign, encodeDesign, decodeDesign, cam, drawVehicle };
 })();
