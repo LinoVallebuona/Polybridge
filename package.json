@@ -1,0 +1,12 @@
+{
+  "name": "bridgewright",
+  "version": "1.0.0",
+  "description": "A browser bridge-building physics game inspired by Poly Bridge.",
+  "private": true,
+  "license": "MIT",
+  "scripts": {
+    "test": "node test/sim-test.js",
+    "build": "node tools/build.js",
+    "start": "python3 -m http.server 8000"
+  }
+}

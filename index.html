@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Bridgewright</title>
+<meta name="description" content="Build bridges from road, wood, steel and rope, then watch real physics decide whether the traffic makes it across.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Barlow:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app">
+  <canvas id="game" aria-label="Bridge building area"></canvas>
+
+  <!-- top bar -->
+  <header id="topbar" class="hud">
+    <button id="btn-menu" class="btn icon-btn" title="Levels (L)" aria-label="Levels">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+    </button>
+    <div id="level-title">
+      <span id="level-num" class="eyebrow">Level 1</span>
+      <span id="level-name">First Steps</span>
+    </div>
+    <div id="budget" title="Cost of your bridge against the level budget">
+      <div class="budget-row"><span class="eyebrow">Cost</span><span id="budget-text" class="num">$0 / $0</span></div>
+      <div class="budget-bar"><div id="budget-fill"></div></div>
+    </div>
+    <div class="spacer"></div>
+    <div class="group" id="edit-actions">
+      <button id="btn-undo" class="btn icon-btn" title="Undo (Ctrl+Z)" aria-label="Undo"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 7 4 12l5 5M4 12h11a5 5 0 0 1 0 10h-2"/></svg></button>
+      <button id="btn-redo" class="btn icon-btn" title="Redo (Ctrl+Y)" aria-label="Redo"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 7 5 5-5 5M20 12H9a5 5 0 0 0 0 10h2"/></svg></button>
+      <button id="btn-clear" class="btn" title="Remove every beam" aria-label="Clear"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5l14 14M19 5 5 19"/></svg><span class="label">Clear</span></button>
+      <button id="btn-share" class="btn" title="Share or import a design" aria-label="Share"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V3M7 8l5-5 5 5M5 13v7h14v-7"/></svg><span class="label">Share</span></button>
+    </div>
+    <button id="btn-sound" class="btn icon-btn" title="Sound on/off" aria-label="Sound" aria-pressed="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4zM16 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11"/></svg></button>
+  </header>
+
+  <!-- bottom toolbar -->
+  <footer id="toolbar" class="hud">
+    <div id="tools" class="group" role="radiogroup" aria-label="Tool">
+      <button class="btn tool" data-tool="build" title="Build (B)" aria-label="Build"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20 20 4M4 20h5M4 20v-5"/><circle cx="20" cy="4" r="2"/></svg></button>
+      <button class="btn tool" data-tool="move" title="Move joints (M)" aria-label="Move"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18M3 12h18M12 3l-3 3M12 3l3 3M12 21l-3-3M12 21l3-3M3 12l3-3M3 12l3 3M21 12l-3-3M21 12l-3 3"/></svg></button>
+      <button class="btn tool" data-tool="delete" title="Delete (X)" aria-label="Delete"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M10 7V4h4v3M7 7l1 13h8l1-13"/></svg></button>
+    </div>
+    <div id="materials" class="group" role="radiogroup" aria-label="Material"></div>
+    <div class="group" id="view-toggles">
+      <button id="btn-stress" class="btn toggle" title="Show stress (S)" aria-pressed="false">Stress</button>
+      <button id="btn-slow" class="btn toggle" title="Slow motion (T)" aria-pressed="false"><span class="long">Slow-mo</span><span class="short">Slow</span></button>
+    </div>
+    <button id="btn-play" class="btn play" title="Run the simulation (Space)">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4v16l13-8z"/></svg><span>Test</span>
+    </button>
+  </footer>
+
+  <div id="sim-status" class="hud chip" hidden></div>
+  <div id="toast" class="hud" role="status" aria-live="polite" hidden></div>
+
+  <!-- level select -->
+  <section id="menu" class="overlay" hidden>
+    <div class="menu-inner">
+      <div class="brand">
+        <h1>Bridge<span>wright</span></h1>
+        <p>Span the gap with road, wood, steel and rope. Stay on budget. Then send the traffic across and see if physics agrees with you.</p>
+      </div>
+      <div id="level-grid"></div>
+      <div class="menu-help">
+        <h2>How to build</h2>
+        <ul>
+          <li><b>Drag</b> from a joint to lay a beam, or <b>click</b> a joint, then click again to chain beams.</li>
+          <li><b>Road</b> is the only thing vehicles drive on. Everything else holds the road up.</li>
+          <li><b>Rope</b> and <b>cable</b> only pull. Wood and steel push and pull.</li>
+          <li><b>Right-click</b> deletes. Scroll or pinch to zoom; drag empty space to pan.</li>
+          <li><b>Space</b> runs the test. Turn on <b>Stress</b> to see which beams are working hardest.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- result -->
+  <section id="result" class="overlay dim" hidden>
+    <div class="card" role="dialog" aria-modal="true" aria-labelledby="result-title">
+      <span id="result-eyebrow" class="eyebrow">Test passed</span>
+      <h2 id="result-title">The bridge held</h2>
+      <p id="result-text"></p>
+      <dl id="result-stats"></dl>
+      <div class="card-actions">
+        <button id="btn-result-edit" class="btn">Back to building</button>
+        <button id="btn-result-watch" class="btn">Keep watching</button>
+        <button id="btn-result-next" class="btn primary">Next level</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- share -->
+  <section id="share" class="overlay dim" hidden>
+    <div class="card" role="dialog" aria-modal="true" aria-labelledby="share-title">
+      <span class="eyebrow">Share</span>
+      <h2 id="share-title">Share this bridge</h2>
+      <p>Anyone with this code can load your design into the same level.</p>
+      <label for="share-code" class="eyebrow">Design code</label>
+      <textarea id="share-code" rows="3" readonly></textarea>
+      <div class="card-actions left">
+        <button id="btn-copy" class="btn primary">Copy code</button>
+      </div>
+      <label for="import-code" class="eyebrow">Load a design</label>
+      <textarea id="import-code" rows="2" placeholder="Paste a design code here"></textarea>
+      <p id="import-error" class="error" hidden></p>
+      <div class="card-actions">
+        <button id="btn-share-close" class="btn">Close</button>
+        <button id="btn-import" class="btn primary">Load design</button>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script src="js/physics.js"></script>
+<script src="js/levels.js"></script>
+<script src="js/game.js"></script>
+</body>
+</html>
