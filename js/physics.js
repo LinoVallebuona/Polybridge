@@ -29,6 +29,10 @@
     van:   { key: 'van',   name: 'Van',   mass: 1800, wheelbase: 2.6, wheelR: 0.42, bodyH: 1.15, speed: 5.0, color: '#f2b631' },
     truck: { key: 'truck', name: 'Truck', mass: 3200, wheelbase: 3.4, wheelR: 0.5,  bodyH: 1.4,  speed: 4.2, color: '#e0603a' },
     bus:   { key: 'bus',   name: 'Bus',   mass: 4200, wheelbase: 5.0, wheelR: 0.5,  bodyH: 1.6,  speed: 4.0, color: '#7a5bd6' },
+    bike:    { key: 'bike',    name: 'Motorbike',     mass: 280,  wheelbase: 1.45, wheelR: 0.33, bodyH: 0.6,  speed: 7.5, color: '#d9433a' },
+    pickup:  { key: 'pickup',  name: 'Pickup',        mass: 1500, wheelbase: 2.8,  wheelR: 0.44, bodyH: 0.95, speed: 5.5, color: '#4f9a5b' },
+    monster: { key: 'monster', name: 'Monster Truck', mass: 2600, wheelbase: 2.6,  wheelR: 0.85, bodyH: 1.0,  speed: 4.6, color: '#d94f8a' },
+    tanker:  { key: 'tanker',  name: 'Tanker',        mass: 6000, wheelbase: 6.0,  wheelR: 0.52, bodyH: 1.8,  speed: 3.6, color: '#e0603a' },
   };
 
   const SUBSTEPS = 24;

@@ -24,8 +24,8 @@
       <span id="level-name">First Steps</span>
     </div>
     <div id="budget" title="Cost of your bridge against the level budget">
-      <div class="budget-row"><span class="eyebrow">Cost</span><span id="budget-text" class="num">$0 / $0</span></div>
-      <div class="budget-bar"><div id="budget-fill"></div></div>
+      <div class="budget-row"><span class="eyebrow">Cost</span><span id="budget-text" class="num">$0 / $0</span><span id="budget-stars" class="stars mini" aria-label="Stars at this cost"></span></div>
+      <div class="budget-bar"><div id="budget-fill"></div><span class="tick" id="tick-2"></span><span class="tick" id="tick-3"></span></div>
     </div>
     <div class="spacer"></div>
     <div class="group" id="edit-actions">
@@ -63,6 +63,7 @@
       <div class="brand">
         <h1>Bridge<span>wright</span></h1>
         <p>Span the gap with road, wood, steel and rope. Stay on budget. Then send the traffic across and see if physics agrees with you.</p>
+        <p id="star-total" class="star-total"></p>
       </div>
       <div id="level-grid"></div>
       <div class="menu-help">
@@ -71,7 +72,9 @@
           <li><b>Drag</b> from a joint to lay a beam, or <b>click</b> a joint, then click again to chain beams.</li>
           <li><b>Road</b> is the only thing vehicles drive on. Everything else holds the road up.</li>
           <li><b>Rope</b> and <b>cable</b> only pull. Wood and steel push and pull.</li>
-          <li><b>Right-click</b> deletes. Scroll or pinch to zoom; drag empty space to pan.</li>
+          <li><b>Double-click</b> or <b>right-click</b> deletes. End a beam on another beam to attach it there.</li>
+          <li>Scroll or pinch to zoom; drag empty space to pan.</li>
+          <li>Finish under budget for <b>1 star</b>, at 85% of the budget or less for <b>2</b>, and at 70% or less for <b>3</b>.</li>
           <li><b>Space</b> runs the test. Turn on <b>Stress</b> to see which beams are working hardest.</li>
         </ul>
       </div>
@@ -83,6 +86,7 @@
     <div class="card" role="dialog" aria-modal="true" aria-labelledby="result-title">
       <span id="result-eyebrow" class="eyebrow">Test passed</span>
       <h2 id="result-title">The bridge held</h2>
+      <div id="result-stars" class="stars big" hidden></div>
       <p id="result-text"></p>
       <dl id="result-stats"></dl>
       <div class="card-actions">

@@ -28,7 +28,8 @@
   const ctx = canvas.getContext('2d');
   const ui = {
     levelNum: $('level-num'), levelName: $('level-name'),
-    budget: $('budget'), budgetText: $('budget-text'), budgetFill: $('budget-fill'),
+    budget: $('budget'), budgetText: $('budget-text'), budgetFill: $('budget-fill'), budgetStars: $('budget-stars'), tick2: $('tick-2'), tick3: $('tick-3'),
+    resultStars: $('result-stars'), starTotal: $('star-total'),
     materials: $('materials'), tools: [...document.querySelectorAll('.tool')],
     play: $('btn-play'), stress: $('btn-stress'), slow: $('btn-slow'), sound: $('btn-sound'),
     undo: $('btn-undo'), redo: $('btn-redo'), clear: $('btn-clear'), share: $('btn-share'), menuBtn: $('btn-menu'),
@@ -80,6 +81,19 @@
   const insideTerrain = (x, y) => S.level.terrain.some((poly) => pointInPoly(x, y, poly));
   const inBounds = (x, y) => { const b = S.level.bounds; return x >= b.x0 - 1e-6 && x <= b.x1 + 1e-6 && y >= b.y0 - 1e-6 && y <= b.y1 + 1e-6; };
 
+  const allowedMats = (lv = S.level) => lv.materials || MATERIAL_ORDER;
+  const isUnlocked = (key, lv = S.level) => allowedMats(lv).includes(key);
+  function unlockLevel(key) {
+    const i = LEVELS.findIndex((lv) => isUnlocked(key, lv));
+    return i < 0 ? null : i;
+  }
+
+  /* materials that first become available on level i */
+  function newMaterials(i) {
+    if (i === 0 || LEVELS[i].sandbox) return [];
+    return allowedMats(LEVELS[i]).filter((k) => !LEVELS.slice(0, i).some((lv) => isUnlocked(k, lv)));
+  }
+
   function beamLen(b) { return dist(b.a.x, b.a.y, b.b.x, b.b.y); }
   function cost() {
     let c = 0;
@@ -106,7 +120,7 @@
     const all = [...anchors, ...free];
     const beams = [];
     for (const [i, j, mat] of (data && data.beams) || []) {
-      if (all[i] && all[j] && MATERIALS[mat] && i !== j) beams.push({ a: all[i], b: all[j], mat });
+      if (all[i] && all[j] && MATERIALS[mat] && isUnlocked(mat) && i !== j) beams.push({ a: all[i], b: all[j], mat });
     }
     S.points = all;
     S.beams = beams;
@@ -183,13 +197,45 @@
     return best;
   }
 
+  /*
+   * A spot on an existing beam under the cursor where a new joint can split it.
+   * Prefers a grid point lying on the beam, keeps clear of the beam's own ends.
+   */
+  function beamSpotAt(sx, sy, skip) {
+    const b = pickBeam(sx, sy);
+    if (!b || (skip && skip(b))) return null;
+    const [wx, wy] = toWorld(sx, sy);
+    const L = beamLen(b);
+    let t = closestT(wx, wy, b.a.x, b.a.y, b.b.x, b.b.y);
+    // a grid point that sits on the beam (within 2 cm) and near the cursor wins
+    const gx = snap(wx), gy = snap(wy);
+    const gt = closestT(gx, gy, b.a.x, b.a.y, b.b.x, b.b.y);
+    const ox = b.a.x + (b.b.x - b.a.x) * gt, oy = b.a.y + (b.b.y - b.a.y) * gt;
+    if (dist(ox, oy, gx, gy) < 0.02 && dist(gx, gy, wx, wy) < GRID * 0.75) t = gt;
+    if (t * L < 0.25 || (1 - t) * L < 0.25) return null; // too close to an end: use the joint instead
+    return { x: b.a.x + (b.b.x - b.a.x) * t, y: b.a.y + (b.b.y - b.a.y) * t, beam: b };
+  }
+  const beamTouches = (b, p) => !!p && (b.a === p || b.b === p || (p.split && p.split === b));
+
+  /* Split beam b at (x, y) and return the new joint. */
+  function splitBeam(b, x, y) {
+    const p = { x, y, anchor: false };
+    S.points.push(p);
+    S.beams = S.beams.filter((q) => q !== b);
+    S.beams.push({ a: b.a, b: p, mat: b.mat }, { a: p, b: b.b, mat: b.mat });
+    return p;
+  }
+
   /* Where a beam from `from` would end if released at the cursor. */
   function previewEnd(from) {
     const m = MATERIALS[S.mat];
     const hit = pickPoint(S.cursor.sx, S.cursor.sy);
-    let x, y, existing = null;
+    let x, y, existing = null, split = null;
+    const spot = hit ? null : beamSpotAt(S.cursor.sx, S.cursor.sy, (b) => beamTouches(b, from));
     if (hit && hit !== from && dist(from.x, from.y, hit.x, hit.y) <= m.maxLen + 1e-6) {
       x = hit.x; y = hit.y; existing = hit;
+    } else if (spot && dist(from.x, from.y, spot.x, spot.y) <= m.maxLen + 1e-6) {
+      x = spot.x; y = spot.y; split = spot.beam;
     } else {
       x = snap(S.cursor.x); y = snap(S.cursor.y);
       const d = dist(from.x, from.y, x, y);
@@ -212,21 +258,24 @@
     const len = dist(from.x, from.y, x, y);
     let valid = len > 0.24 && existing !== from;
     let reason = '';
-    if (!existing) {
+    if (!existing && !split) {
       if (!inBounds(x, y)) { valid = false; reason = 'Outside the build area'; }
       else if (insideTerrain(x, y)) { valid = false; reason = 'Cannot build inside rock'; }
     }
     if (existing && S.beams.some((b) => (b.a === from && b.b === existing) || (b.b === from && b.a === existing) ) && S.beams.find((b) => (b.a === from && b.b === existing) || (b.b === from && b.a === existing)).mat === S.mat) {
       valid = false; reason = 'Already built';
     }
-    return { x, y, existing, len, valid, reason };
+    return { x, y, existing, split, len, valid, reason };
   }
 
   function placeBeam(from, end) {
     if (!end.valid) { if (end.reason) toast(end.reason, true); sfx.error(); return null; }
     pushHistory();
+    if (from.split) from = splitBeam(from.split, from.x, from.y); // started on the middle of a beam
     let p = end.existing;
+    if (!p && end.split) p = splitBeam(end.split, end.x, end.y);
     if (!p) { p = { x: end.x, y: end.y, anchor: false }; S.points.push(p); }
+    S.lastPlace = performance.now();
     const dup = S.beams.find((b) => (b.a === from && b.b === p) || (b.b === from && b.a === p));
     if (dup) dup.mat = S.mat; else S.beams.push({ a: from, b: p, mat: S.mat });
     changed();
@@ -296,10 +345,12 @@
     S.undo = []; S.redo = [];
     S.from = null; S.moving = null;
     deserialize(design || store.get(`design.${S.level.id}`, null));
+    if (!isUnlocked(S.mat)) S.mat = 'road';
     store.set('lastLevel', i);
     fitCamera();
     updateHud();
-    toast(S.level.hint);
+    const fresh = newMaterials(i);
+    toast(fresh.length ? `New: ${fresh.map((k) => MATERIALS[k].name).join(' and ')}. ${S.level.hint}` : S.level.hint);
   }
 
   function progress() { return store.get('progress', {}); }
@@ -313,6 +364,26 @@
       best: underBudget ? Math.min(prev.best || Infinity, c) : prev.best,
     };
     store.set('progress', p);
+  }
+
+  /* ---------- stars: 1 = under budget, 2 = ≤85 % of budget, 3 = ≤70 % ---------- */
+  const STAR_RATIOS = [1, 0.85, 0.7];
+  function starThresholds(lv) { return STAR_RATIOS.map((r) => Math.floor(lv.budget * r)); }
+  function starsFor(lv, c) {
+    if (lv.sandbox || c == null || !(c <= lv.budget)) return 0;
+    return starThresholds(lv).filter((t) => c <= t).length;
+  }
+  const STAR_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.6l2.9 6 6.6.8-4.9 4.6 1.3 6.5L12 17.3l-5.9 3.2 1.3-6.5L2.5 9.4l6.6-.8z"/></svg>';
+  function starsHTML(n) {
+    let out = '';
+    for (let i = 0; i < 3; i++) out += `<span class="star${i < n ? ' on' : ''}">${STAR_SVG}</span>`;
+    return out;
+  }
+  function totalStars() {
+    const p = progress();
+    let got = 0, max = 0;
+    for (const lv of LEVELS) { if (lv.sandbox) continue; max += 3; got += starsFor(lv, (p[lv.id] || {}).best); }
+    return { got, max };
   }
 
   function startSim() {
@@ -371,6 +442,18 @@
     stat('Vehicles across', `${w.vehiclesDone} / ${w.vehiclesTotal}`, won ? 'ok' : 'bad');
     stat('Beams broken', String(broken), broken ? 'bad' : '');
     if (best) stat('Best under budget', fmt(best), 'ok');
+    const earned = won ? starsFor(S.level, c) : 0;
+    ui.resultStars.hidden = !(won && under && !S.level.sandbox);
+    ui.resultStars.innerHTML = starsHTML(earned);
+    ui.resultStars.setAttribute('aria-label', `${earned} of 3 stars`);
+    if (won && under && !S.level.sandbox) {
+      const th = starThresholds(S.level);
+      if (earned < 3) {
+        ui.resultText.textContent = `Every vehicle reached the flag. Get it to ${fmt(th[earned])} or less for ${earned + 1} star${earned ? 's' : ''}.`;
+      } else {
+        ui.resultText.textContent = 'Every vehicle reached the flag, and cheaply. Three stars.';
+      }
+    }
     const hasNext = S.levelIndex < LEVELS.length - 1;
     ui.resultNext.hidden = !(won && under && hasNext);
     ui.resultWatch.hidden = false;
@@ -442,6 +525,8 @@
     if (S.tool === 'build') {
       if (S.from) { S.pendingPlace = true; return; } // finish on pointerup
       if (p) { S.from = p; S.dragMode = true; return; }
+      const spot = beamSpotAt(S.cursor.sx, S.cursor.sy);
+      if (spot) { S.from = { x: spot.x, y: spot.y, split: spot.beam }; S.dragMode = true; return; }
       startPan();
     } else if (S.tool === 'delete') {
       if (!deleteAt(S.cursor.sx, S.cursor.sy)) startPan(); else S.deleting = true;
@@ -511,13 +596,38 @@
         return;
       }
       const hit = pickPoint(S.cursor.sx, S.cursor.sy);
-      if (hit === S.from) { S.from = null; return; }
+      const [fx, fy] = toScreen(S.from.x, S.from.y);
+      if (hit === S.from || (S.from.split && dist(fx, fy, S.cursor.sx, S.cursor.sy) < HIT_PX)) { S.from = null; return; }
       const end = previewEnd(S.from);
       const p = placeBeam(S.from, end);
       if (p) S.from = p; // chain from the new joint
     }
   }
   canvas.addEventListener('pointerup', endPointer);
+  function doubleDelete(sx, sy) {
+    if (S.mode !== 'build' || S.tool === 'move') return;
+    S.from = null; S.dragMode = false;
+    // a double-click that just finished a chain of beams should not delete the beam it made
+    if (S.lastPlace && performance.now() - S.lastPlace < 600) return;
+    deleteAt(sx, sy);
+  }
+  let lastTap = null, lastTouchDouble = 0;
+  canvas.addEventListener('dblclick', (e) => {
+    if (performance.now() - lastTouchDouble < 700) return; // already handled as a double-tap
+    updateCursor(e);
+    doubleDelete(S.cursor.sx, S.cursor.sy);
+  });
+  // touch screens: detect double-taps ourselves
+  canvas.addEventListener('pointerup', (e) => {
+    if (e.pointerType !== 'touch') return;
+    const now = performance.now();
+    const r = canvas.getBoundingClientRect();
+    const sx = e.clientX - r.left, sy = e.clientY - r.top;
+    if (lastTap && now - lastTap.t < 350 && dist(lastTap.sx, lastTap.sy, sx, sy) < 24) {
+      lastTap = null; lastTouchDouble = now;
+      doubleDelete(sx, sy);
+    } else lastTap = { t: now, sx, sy };
+  });
   canvas.addEventListener('pointercancel', endPointer);
   canvas.addEventListener('pointerleave', () => { S.cursor.inside = false; });
 
@@ -566,11 +676,18 @@
       b.setAttribute('role', 'radio');
       b.title = `${m.name}: ${fmt(m.cost)} per metre, up to ${m.maxLen} m${m.drivable ? ', vehicles drive on it' : ''}${m.tensionOnly ? ', only pulls' : ''} (${i + 1})`;
       b.innerHTML = `<span class="swatch" style="background:${m.color}"></span><span class="mat-text"><span class="mat-name">${m.short || m.name}</span><span class="mat-meta">${fmt(m.cost)}/m · ${m.maxLen} m</span></span><span class="key">${i + 1}</span>`;
+      b.insertAdjacentHTML('beforeend', '<svg class="lock" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>');
       b.addEventListener('click', () => setMaterial(key));
       ui.materials.appendChild(b);
     });
   }
   function setMaterial(key) {
+    if (!isUnlocked(key)) {
+      const at = unlockLevel(key);
+      toast(`${MATERIALS[key].name} unlocks at level ${at + 1}, ${LEVELS[at].name}.`, true);
+      sfx.error();
+      return;
+    }
     S.mat = key;
     if (S.tool !== 'build') setTool('build');
     updateHud();
@@ -643,16 +760,22 @@
   }
   function renderMenu() {
     const prog = progress();
+    const t = totalStars();
+    ui.starTotal.innerHTML = `<span class="stars"><span class="star on">${STAR_SVG}</span></span> ${t.got} / ${t.max} stars`;
     ui.levelGrid.innerHTML = '';
     LEVELS.forEach((lv, i) => {
       const p = prog[lv.id] || {};
       const b = document.createElement('button');
       b.className = 'level-card';
       const veh = summarizeVehicles(lv);
-      const status = p.done ? '<span class="pill done">Complete</span>' : p.held ? '<span class="pill held">Over budget</span>' : '<span class="pill">New</span>';
+      const st = starsFor(lv, p.best);
+      const status = lv.sandbox ? '<span class="pill">Free build</span>'
+        : p.done ? `<span class="stars card-stars" aria-label="${st} of 3 stars">${starsHTML(st)}</span>`
+        : p.held ? '<span class="pill held">Over budget</span>' : '<span class="pill">New</span>';
       b.innerHTML = `<div class="lc-top"><span class="lc-num">${lv.sandbox ? '∞' : String(i + 1).padStart(2, '0')}</span>${status}</div>
         <div class="lc-name">${lv.name}</div>
         <div class="lc-veh">${veh}</div>
+        ${newMaterials(i).length ? `<div class="lc-new">New: ${newMaterials(i).map((k) => MATERIALS[k].name).join(', ')}</div>` : ''}
         <div class="lc-meta"><span>Budget ${fmt(lv.budget)}</span><span>${p.best ? 'Best ' + fmt(p.best) : ''}</span></div>`;
       b.addEventListener('click', () => { S.started = true; toggleMenu(false); loadLevel(i); });
       ui.levelGrid.appendChild(b);
@@ -684,9 +807,25 @@
     ui.budgetText.textContent = `${fmt(c)} / ${fmt(lv.budget)}`;
     const ratio = lv.budget === Infinity ? 0 : c / lv.budget;
     ui.budgetFill.style.width = `${Math.min(100, ratio * 100)}%`;
+    const showStars = !lv.sandbox;
+    ui.budgetStars.hidden = !showStars;
+    ui.tick2.hidden = ui.tick3.hidden = !showStars;
+    if (showStars) {
+      const n = starsFor(lv, c);
+      ui.budgetStars.innerHTML = starsHTML(n);
+      ui.budgetStars.setAttribute('aria-label', `${n} of 3 stars at this cost`);
+      const th = starThresholds(lv);
+      ui.tick2.style.left = `${STAR_RATIOS[1] * 100}%`;
+      ui.tick3.style.left = `${STAR_RATIOS[2] * 100}%`;
+      ui.budget.title = `Cost against budget. 3 stars at ${fmt(th[2])} or less, 2 stars at ${fmt(th[1])} or less, 1 star within ${fmt(th[0])}.`;
+    }
     ui.budget.classList.toggle('over', ratio > 1);
     ui.budget.classList.toggle('warn', ratio > 0.85 && ratio <= 1);
     for (const b of ui.materials.children) {
+      const locked = !isUnlocked(b.dataset.mat);
+      b.classList.toggle('locked', locked);
+      const m = MATERIALS[b.dataset.mat];
+      b.querySelector('.mat-meta').textContent = locked ? `Level ${unlockLevel(b.dataset.mat) + 1}` : `${fmt(m.cost)}/m · ${m.maxLen} m`;
       const on = b.dataset.mat === S.mat && S.tool === 'build';
       b.classList.toggle('active', on); b.setAttribute('aria-checked', on);
     }
@@ -1055,7 +1194,8 @@
       const m = MATERIALS[S.mat];
       const [ax, ay] = toScreen(S.from.x, S.from.y), [bx, by] = toScreen(end.x, end.y);
       drawBeam(ax, ay, bx, by, m, { alpha: 0.6, color: end.valid ? null : '#d23f34' });
-      if (!end.existing) drawJoint(bx, by, false, end.valid ? null : '#d23f34');
+      if (!end.existing) drawJoint(bx, by, false, end.valid ? (end.split ? '#ff7a2f' : null) : '#d23f34');
+      if (S.from.split) drawJoint(ax, ay, false, '#ff7a2f');
       // max-length circle
       ctx.strokeStyle = 'rgba(28, 39, 48, 0.25)';
       ctx.setLineDash([4, 6]); ctx.lineWidth = 1;
@@ -1087,10 +1227,14 @@
     ctx.lineTo(x, y + r); ctx.quadraticCurveTo(x, y, x + r, y); ctx.closePath();
   }
 
-  function drawSimBridge() {
+  /* pass 'road' draws the deck (vehicles go on top of it); pass 'structure' draws everything else above the vehicles */
+  function drawSimBridge(pass) {
     const w = S.world;
     const order = ['rope', 'cable', 'wood', 'steel', 'road', 'reinforced'];
-    const beams = w.beams.filter((b) => !b.broken).sort((a, b) => order.indexOf(a.mat.key) - order.indexOf(b.mat.key));
+    const road = pass === 'road';
+    const beams = w.beams
+      .filter((b) => !b.broken && b.mat.drivable === road)
+      .sort((a, b) => order.indexOf(a.mat.key) - order.indexOf(b.mat.key));
     for (const b of beams) {
       const A = w.nodes[b.a], B = w.nodes[b.b];
       const [ax, ay] = toScreen(A.x, A.y), [bx, by] = toScreen(B.x, B.y);
@@ -1098,8 +1242,9 @@
       const color = S.stress && !b.stub ? (b.mat.tensionOnly && b.smooth <= 0 ? '#9aa4ad' : stressColor(ratio)) : null;
       drawBeam(ax, ay, bx, by, b.mat, { color });
     }
+    if (road) return;
     const used = new Set();
-    for (const b of beams) { used.add(b.a); used.add(b.b); }
+    for (const b of w.beams) if (!b.broken) { used.add(b.a); used.add(b.b); }
     w.nodes.forEach((n, i) => {
       if (!used.has(i)) return;
       const [sx, sy] = toScreen(n.x, n.y);
@@ -1124,6 +1269,37 @@
         cargo: [[-1.0, 0.1], [wb - 0.75, 0.1], [wb - 0.75, 2.0], [-1.0, 2.0]],
         glass: [[wb + 0.62, 1.62], [wb - 0.1, 1.62], [wb - 0.1, 1.05], [wb + 0.9, 1.05]],
       };
+      case 'bike': {
+        const helmet = [];
+        for (let i = 0; i < 10; i++) { const a = (i / 10) * Math.PI * 2; helmet.push([0.78 + Math.cos(a) * 0.19, 1.42 + Math.sin(a) * 0.19]); }
+        return {
+          body: [[-0.35, 0.05], [wb + 0.2, 0.05], [wb + 0.1, 0.5], [wb * 0.55, 0.58], [0.1, 0.62], [-0.42, 0.38]],
+          glass: [[wb - 0.08, 0.55], [wb + 0.08, 0.55], [wb - 0.02, 0.88], [wb - 0.18, 0.82]],
+          extra: [
+            { pts: [[0.4, 0.55], [0.8, 0.55], [0.92, 1.24], [0.58, 1.3]], fill: '#2d3a46' },
+            { pts: [[0.8, 1.15], [0.92, 1.24], [wb - 0.05, 0.8], [wb - 0.15, 0.72]], fill: '#2d3a46' },
+            { pts: helmet, fill: '#f2b631' },
+          ],
+          extraOnTop: true,
+        };
+      }
+      case 'pickup': return {
+        body: [[-0.85, -0.05], [wb + 0.9, -0.05], [wb + 0.95, 0.55], [wb + 0.35, 0.62], [wb - 0.15, 1.2], [wb - 1.05, 1.2], [wb - 1.15, 0.62], [-0.85, 0.62]],
+        glass: [[wb - 0.25, 1.1], [wb - 0.95, 1.1], [wb - 1.0, 0.68], [wb + 0.15, 0.68]],
+      };
+      case 'monster': return {
+        extra: [{ pts: [[-0.3, -0.1], [wb + 0.3, -0.1], [wb + 0.3, 0.45], [-0.3, 0.45]], fill: '#2a2f35' }],
+        body: [[-0.9, 0.35], [wb + 0.95, 0.35], [wb + 1.0, 0.85], [wb + 0.35, 0.95], [wb - 0.1, 1.5], [0.3, 1.5], [-0.2, 0.95], [-0.9, 0.9]],
+        glass: [[wb - 0.2, 1.4], [0.38, 1.4], [0.05, 1.0], [wb + 0.15, 1.0]],
+      };
+      case 'tanker': return {
+        extra: [
+          { pts: [[-1.1, 0.55], [-0.95, 0.3], [wb - 0.95, 0.3], [wb - 0.8, 0.55], [wb - 0.8, 1.75], [wb - 0.95, 2.0], [-0.95, 2.0], [-1.1, 1.75]], fill: '#c9d0d6' },
+          { pts: [[-1.1, 1.05], [wb - 0.8, 1.05], [wb - 0.8, 1.25], [-1.1, 1.25]], fill: '#e0603a' },
+        ],
+        body: [[wb - 0.6, -0.05], [wb + 1.05, -0.05], [wb + 1.05, 1.0], [wb + 0.75, 1.8], [wb - 0.6, 1.8]],
+        glass: [[wb + 0.67, 1.67], [wb - 0.1, 1.67], [wb - 0.1, 1.05], [wb + 0.95, 1.05]],
+      };
       case 'bus': default: return {
         body: [[-1.0, -0.05], [wb + 1.0, -0.05], [wb + 1.05, 1.9], [-1.0, 1.9]],
         windows: true,
@@ -1147,7 +1323,9 @@
     const shape = vehicleShape(def);
     const outline = 'rgba(20, 30, 40, 0.55)';
     if (shape.cargo) poly(shape.cargo, '#e9e4d6', outline);
+    if (shape.extra && !shape.extraOnTop) for (const e of shape.extra) poly(e.pts, e.fill, outline);
     poly(shape.body, def.color, outline);
+    if (shape.extra && shape.extraOnTop) for (const e of shape.extra) poly(e.pts, e.fill, outline);
     if (shape.windows) {
       for (let x = -0.7; x < def.wheelbase + 0.2; x += 0.85) poly([[x, 1.05], [x + 0.65, 1.05], [x + 0.65, 1.7], [x, 1.7]], '#cfe9f2', null);
     }
@@ -1216,8 +1394,9 @@
     if (S.mode === 'build') {
       drawBuildDesign();
     } else if (S.world) {
-      drawSimBridge();
+      drawSimBridge('road');
       for (const v of S.world.vehicles) if (v.active || v.sunk) drawVehicle(v);
+      drawSimBridge('structure');
     }
     drawParticles();
     drawWater(true);

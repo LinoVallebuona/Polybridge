@@ -111,6 +111,48 @@ add('L8 wood double truss', L['long-haul'], (b) => {
   b.trussAbove(0, 32, 0, 16, 1.5, 'wood').trussBelow(0, 16, 0, 8, 1.5, 'wood').trussBelow(16, 32, 0, 8, 1.5, 'wood');
   b.beam(15.4, -4, 15, -1.5, 'wood').beam(16.6, -4, 17, -1.5, 'wood').beam(15.4, -4, 16.6, -4, 'wood');
 }, null);
+// Level 9 — rush hour, 14 m, five vehicles
+add('L9 road only', L['rush-hour'], (b) => b.line(0, 0, 14, 0, 7, 'road'), 'failed');
+add('L9 wood truss above', L['rush-hour'], (b) => { b.line(0, 0, 14, 0, 7, 'road'); b.trussAbove(0, 14, 0, 7, 1.5, 'wood'); }, null);
+add('L9 double wood truss', L['rush-hour'], (b) => { b.line(0, 0, 14, 0, 7, 'road'); b.trussAbove(0, 14, 0, 7, 1.5, 'wood').trussBelow(0, 14, 0, 7, 1.5, 'wood'); }, 'won');
+// Level 10 — uphill 14 m, +3 m
+add('L10 truss above', L.uphill, (b) => { b.line(0, 0, 14, 3, 8, 'road'); b.truss(0, 0, 14, 3, 8, -1.5, 'wood'); }, null);
+add('L10 double truss', L.uphill, (b) => { b.line(0, 0, 14, 3, 8, 'road'); b.truss(0, 0, 14, 3, 8, -1.5, 'wood').truss(0, 0, 14, 3, 8, 1.5, 'wood'); }, 'won');
+// Level 11 — monster trucks, 14 m
+add('L11 double wood truss', L['monster-mash'], (b) => { b.line(0, 0, 14, 0, 7, 'road'); b.trussAbove(0, 14, 0, 7, 1.5, 'wood').trussBelow(0, 14, 0, 7, 1.5, 'wood'); }, null);
+add('L11 steel truss', L['monster-mash'], (b) => { b.line(0, 0, 14, 0, 7, 'road'); b.trussAbove(0, 14, 0, 7, 2, 'steel'); }, 'won');
+// Level 12 — the narrows, 22 m with a thin rock
+add('L12 two wood trusses', L.narrows, (b) => {
+  b.line(0, 0, 11, 0, 6, 'road').line(11, 0, 22, 0, 6, 'road');
+  b.trussAbove(0, 11, 0, 6, 1.5, 'wood').trussAbove(11, 22, 0, 6, 1.5, 'wood');
+  b.beam(10.6, -1.5, 11, 0, 'wood').beam(11.4, -1.5, 11, 0, 'wood');
+}, 'won');
+add('L12 two double trusses', L.narrows, (b) => {
+  b.line(0, 0, 11, 0, 6, 'road').line(11, 0, 22, 0, 6, 'road');
+  b.trussAbove(0, 11, 0, 6, 1.5, 'wood').trussAbove(11, 22, 0, 6, 1.5, 'wood');
+  b.trussBelow(0, 11, 0, 6, 1.5, 'wood').trussBelow(11, 22, 0, 6, 1.5, 'wood');
+  b.beam(10.6, -1.5, 11, 0, 'wood').beam(11.4, -1.5, 11, 0, 'wood');
+}, null);
+// Level 13 — tanker, 20 m with a pillar
+add('L13 steel trusses', L['tanker-trouble'], (b) => {
+  b.line(0, 0, 10, 0, 5, 'road').line(10, 0, 20, 0, 5, 'road');
+  b.trussAbove(0, 10, 0, 5, 2, 'steel').trussAbove(10, 20, 0, 5, 2, 'steel');
+  b.beam(9.5, -4, 10, -2, 'steel').beam(10.5, -4, 10, -2, 'steel').beam(10, -2, 10, 0, 'steel');
+}, 'won');
+add('L13 steel + reinforced', L['tanker-trouble'], (b) => {
+  b.line(0, 0, 10, 0, 5, 'reinforced').line(10, 0, 20, 0, 5, 'reinforced');
+  b.trussAbove(0, 10, 0, 5, 2, 'steel').trussAbove(10, 20, 0, 5, 2, 'steel');
+  b.beam(9.5, -4, 10, -2, 'steel').beam(10.5, -4, 10, -2, 'steel').beam(10, -2, 10, 0, 'steel');
+}, null);
+// Level 14 — grand finale, 40 m, two pillars
+const finale = (deck, top) => (b) => {
+  b.line(0, 0, 40, 0, 20, deck);
+  b.trussAbove(0, 14, 0, 7, 2, top).trussAbove(14, 26, 0, 6, 2, top).trussAbove(26, 40, 0, 7, 2, top);
+  for (const x of [14, 26]) b.beam(x - 0.5, -4, x, -2, 'steel').beam(x + 0.5, -4, x, -2, 'steel').beam(x, -2, x, 0, 'steel');
+};
+add('L14 steel + road', L['grand-finale'], finale('road', 'steel'), null);
+add('L14 steel + reinforced', L['grand-finale'], finale('reinforced', 'steel'), 'won');
+
 // Sandbox: every vehicle over a big steel truss
 add('Sandbox steel', L.sandbox, (b) => {
   b.line(0, 0, 32, 0, 16, 'reinforced');
@@ -130,10 +172,13 @@ for (const c of cases) {
   const b = new Builder(c.level);
   c.build(b);
   const r = run(c.level, b.design());
-  const ok = !c.expect || r.status === c.expect;
+  const allowed = c.level.materials;
+  const locked = allowed ? [...new Set(b.beams.map((x) => x[2]).filter((m) => !allowed.includes(m)))] : [];
+  if (locked.length) r.lockedMaterials = locked;
+  const ok = (!c.expect || r.status === c.expect) && !locked.length;
   if (!ok) failures++;
   console.log(`${ok ? 'ok  ' : 'FAIL'} ${c.name.padEnd(30)} ${JSON.stringify(r)}`);
-  if (r.status === 'won' && r.cost <= c.level.budget) solvable.add(c.level.id);
+  if (r.status === 'won' && r.cost <= c.level.budget && !locked.length) solvable.add(c.level.id);
 }
 // every level needs at least one reference bridge that passes within budget
 if (!only) {

@@ -15,7 +15,8 @@ No install and no dependencies: it is plain HTML, CSS and JavaScript on a `<canv
 | --- | --- | --- |
 | Lay a beam | Drag from a joint, or click a joint and then click where it should end (keeps chaining) | Drag from a joint, or tap a joint then tap the end point |
 | Pick a material | `1`–`6` or the toolbar | Toolbar |
-| Delete | Right-click a beam or joint, or the Delete tool (`X`) | Delete tool |
+| Attach to the middle of a beam | Start or end a beam on an existing beam: it splits there with a new joint | Same |
+| Delete | Double-click or right-click a beam or joint, or the Delete tool (`X`) | Double-tap, or the Delete tool |
 | Move a joint | Move tool (`M`), then drag | Move tool, then drag |
 | Undo / redo | `Ctrl+Z` / `Ctrl+Y` | Toolbar |
 | Pan / zoom | Drag empty space, middle mouse; wheel to zoom; `F` refits | One finger on empty space; pinch |
@@ -30,9 +31,11 @@ Rules of the site:
 - **Rope** and **steel cable** only pull, so they go slack when pushed. **Wood** and **steel** push and pull.
 - Each material has a maximum beam length (road and wood 2 m, steel 4 m, rope and cable 10 m) and a price per metre.
 - A level is complete when every vehicle reaches the flag and the bridge cost is within budget. A bridge that holds but costs too much is recorded as "over budget".
+- **Stars** reward cheap bridges: 1 star for finishing within budget, 2 stars at 85% of the budget or less, 3 stars at 70% or less. The budget bar shows the star marks and the stars your current design would earn.
+- **Materials unlock** as you go: levels 1–3 have road and wood, Heavy Duty adds reinforced road and steel, and Hang Loose adds rope and steel cable.
 - Your design for each level saves in the browser automatically. **Share** gives you a code (and `#code` link) that loads the design for someone else.
 
-There are eight levels plus a sandbox with no budget: a starter gap, triangles, a rock pillar, a heavy truck, a crossing with no supports below, a downhill span, two pillars with three vehicles, and a 32 m crossing for a bus and a truck.
+There are 14 levels plus a sandbox with no budget, and eight vehicles: motorbike, car, pickup, van, monster truck, truck, bus and a six-tonne tanker. Levels run from a 6 m starter gap through a crossing with no supports below, uphill and downhill spans and a five-vehicle rush hour, to a 40 m grand finale.
 
 ## How it works
 

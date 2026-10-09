@@ -72,7 +72,23 @@ body {
 .budget-row { display: flex; gap: 8px; align-items: baseline; justify-content: space-between; }
 #budget-text { font-size: 15px; font-weight: 600; }
 #budget.over #budget-text { color: var(--bad); }
-.budget-bar { height: 6px; border-radius: 3px; background: var(--paper-2); overflow: hidden; }
+.budget-bar { position: relative; height: 6px; border-radius: 3px; background: var(--paper-2); overflow: hidden; }
+.budget-bar .tick { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--paper); }
+
+/* stars */
+.stars { display: inline-flex; gap: 2px; align-items: center; }
+.star svg { display: block; width: 100%; height: 100%; fill: #d8d2c2; stroke: #b9b19c; stroke-width: 1.2; stroke-linejoin: round; }
+.star.on svg { fill: #ffc233; stroke: #c98a00; }
+.stars.mini .star { width: 13px; height: 13px; }
+.stars.big { gap: 6px; }
+.stars.big .star { width: 40px; height: 40px; }
+.stars.big .star.on { animation: star-pop .35s ease-out backwards; }
+.stars.big .star:nth-child(2) { animation-delay: .15s; }
+.stars.big .star:nth-child(3) { animation-delay: .3s; }
+@keyframes star-pop { from { transform: scale(0.2); opacity: 0; } 70% { transform: scale(1.2); } to { transform: scale(1); opacity: 1; } }
+.card-stars .star { width: 18px; height: 18px; }
+.star-total { display: inline-flex; align-items: center; gap: 8px; margin-top: 14px !important; padding: 6px 12px; border-radius: 999px; background: rgba(244, 241, 232, 0.14); color: var(--paper) !important; font: 600 15px/1 var(--font-display) !important; font-variant-numeric: tabular-nums; }
+.star-total .star { width: 18px; height: 18px; }
 #budget-fill { height: 100%; width: 0; background: var(--ok); transition: width .2s ease, background-color .2s; }
 #budget.warn #budget-fill { background: #e3a21a; }
 #budget.over #budget-fill { background: var(--bad); }
@@ -113,6 +129,11 @@ body {
 .mat .mat-name { font: 600 13px/1 var(--font-display); }
 .mat .mat-meta { font: 500 11px/1 var(--font-display); color: var(--ink-soft); font-variant-numeric: tabular-nums; letter-spacing: 0.02em; }
 .mat .key { font: 600 10px/1 var(--font-display); color: var(--ink-soft); border: 1px solid var(--line); border-radius: 4px; padding: 3px 4px; margin-left: 2px; }
+.mat .lock { display: none; width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; }
+.mat.locked { background: var(--paper-2); color: var(--ink-soft); border-style: dashed; cursor: not-allowed; }
+.mat.locked .swatch { opacity: .35; }
+.mat.locked .lock { display: block; }
+.mat.locked .key { display: none; }
 .mat.active { background: var(--ink); border-color: var(--ink); color: var(--paper); }
 .mat.active .mat-meta, .mat.active .key { color: #c5ccd2; border-color: #4a5966; }
 
@@ -169,6 +190,7 @@ body {
 .level-card .lc-name { font: 700 17px/1.15 var(--font-display); }
 .level-card .lc-meta { display: flex; justify-content: space-between; font: 500 12px/1 var(--font-display); color: var(--ink-soft); font-variant-numeric: tabular-nums; }
 .level-card .lc-veh { font-size: 13px; color: var(--ink-soft); }
+.level-card .lc-new { font: 600 11px/1 var(--font-display); letter-spacing: .06em; text-transform: uppercase; color: var(--accent-ink); background: #ffe3cf; justify-self: start; padding: 5px 7px; border-radius: 6px; }
 .pill { font: 600 10px/1 var(--font-display); letter-spacing: .1em; text-transform: uppercase; padding: 5px 7px; border-radius: 999px; background: var(--paper-2); color: var(--ink-soft); }
 .pill.done { background: #d5eedc; color: #1d6b39; }
 .pill.held { background: #fbe6c6; color: #7a4a00; }
@@ -213,6 +235,7 @@ body {
   #topbar { gap: 6px; padding-inline: 10px; }
   #budget { min-width: 0; padding-left: 8px; }
   #budget .eyebrow { display: none; }
+  #budget .stars.mini .star { width: 11px; height: 11px; }
   #budget-text { font-size: 13px; white-space: nowrap; }
   #level-name { font-size: 15px; }
   #edit-actions { gap: 4px; }
@@ -235,5 +258,5 @@ body {
   .btn.icon-btn, #btn-clear, #btn-share { width: 34px; }
 }
 @media (prefers-reduced-motion: reduce) {
-  * { transition: none !important; }
+  * { transition: none !important; animation: none !important; }
 }
